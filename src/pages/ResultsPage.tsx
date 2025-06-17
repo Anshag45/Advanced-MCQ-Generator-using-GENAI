@@ -1,0 +1,417 @@
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { 
+  Download, 
+  RefreshCw, 
+  CheckCircle, 
+  XCircle, 
+  HelpCircle,
+  FileText,
+  Share2,
+  Copy,
+  Eye,
+  EyeOff,
+  Globe,
+  Type
+} from 'lucide-react';
+import { useMCQContext } from '../context/MCQContext';
+import { useTheme } from '../context/ThemeContext';
+import { exportToPDF } from '../utils/pdfExport';
+
+const ResultsPage: React.FC = () => {
+  const { mcqs, sourceUrl, sourceText, isLoading } = useMCQContext();
+  const { isDarkMode } = useTheme();
+  const [showAnswers, setShowAnswers] = useState(false);
+  const [selectedAnswers, setSelectedAnswers] = useState<{[key: number]: number}>({});
+  const [showHints, setShowHints] = useState<{[key: number]: boolean}>({});
+  const [copied, setCopied] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100'
+      }`}>
+        <div className="text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+            Generating your MCQs...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!mcqs || mcqs.length === 0) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100'
+      }`}>
+        <div className="text-center">
+          <FileText className={`w-16 h-16 mx-auto mb-4 ${
+            isDarkMode ? 'text-gray-600' : 'text-gray-400'
+          }`} />
+          <h2 className={`text-2xl font-bold mb-2 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            No MCQs Available
+          </h2>
+          <p className={`mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Generate some questions first!
+          </p>
+          <Link
+            to="/generate"
+            className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <RefreshCw className="w-5 h-5" />
+            <span>Generate MCQs</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const handleAnswerSelect = (questionIndex: number, answerIndex: number) => {
+    setSelectedAnswers({
+      ...selectedAnswers,
+      [questionIndex]: answerIndex
+    });
+  };
+
+  const toggleHint = (questionIndex: number) => {
+    setShowHints({
+      ...showHints,
+      [questionIndex]: !showHints[questionIndex]
+    });
+  };
+
+  const copyToClipboard = async () => {
+    const text = mcqs.map((mcq, index) => 
+      `${index + 1}. ${mcq.question}\n${mcq.options.map((opt, i) => `${String.fromCharCode(97 + i)}) ${opt}`).join('\n')}\n`
+    ).join('\n');
+    
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const calculateScore = () => {
+    let correct = 0;
+    mcqs.forEach((mcq, index) => {
+      if (selectedAnswers[index] === mcq.correctAnswer) {
+        correct++;
+      }
+    });
+    return { correct, total: mcqs.length, percentage: Math.round((correct / mcqs.length) * 100) };
+  };
+
+  const score = calculateScore();
+
+  return (
+    <div className={`min-h-screen py-8 transition-colors ${
+      isDarkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100'
+    }`}>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <motion.div
+          initial={{ y: 50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-8"
+        >
+          <h1 className={`text-3xl md:text-5xl font-bold mb-4 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Generated MCQs
+          </h1>
+          <p className={`mb-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            {mcqs.length} questions generated from your content
+          </p>
+          
+          {(sourceUrl || sourceText) && (
+            <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-full text-sm ${
+              isDarkMode 
+                ? 'bg-blue-900/30 text-blue-300' 
+                : 'bg-blue-50 text-blue-700'
+            }`}>
+              {sourceUrl ? (
+                <>
+                  <Globe className="w-4 h-4" />
+                  <span className="truncate max-w-md">{sourceUrl}</span>
+                </>
+              ) : (
+                <>
+                  <Type className="w-4 h-4" />
+                  <span>Custom Text Content</span>
+                </>
+              )}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Controls */}
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className={`backdrop-blur-sm rounded-2xl p-6 shadow-lg border mb-8 ${
+            isDarkMode 
+              ? 'bg-gray-800/80 border-gray-700' 
+              : 'bg-white/80 border-gray-200/50'
+          }`}
+        >
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              onClick={() => setShowAnswers(!showAnswers)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                showAnswers 
+                  ? isDarkMode
+                    ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
+                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  : isDarkMode
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {showAnswers ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span>{showAnswers ? 'Hide' : 'Show'} Answers</span>
+            </button>
+            
+            <button
+              onClick={copyToClipboard}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' 
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
+            >
+              {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              <span>{copied ? 'Copied!' : 'Copy Text'}</span>
+            </button>
+            
+            <button
+              onClick={() => exportToPDF(mcqs, showAnswers)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50' 
+                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+              }`}
+            >
+              <Download className="w-4 h-4" />
+              <span>Export PDF</span>
+            </button>
+            
+            <button className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+              isDarkMode 
+                ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' 
+                : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+            }`}>
+              <Share2 className="w-4 h-4" />
+              <span>Share</span>
+            </button>
+          </div>
+          
+          {Object.keys(selectedAnswers).length > 0 && (
+            <div className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <div className="text-center">
+                <div className={`inline-flex items-center space-x-4 px-6 py-3 rounded-xl ${
+                  isDarkMode 
+                    ? 'bg-gradient-to-r from-blue-900/30 to-purple-900/30' 
+                    : 'bg-gradient-to-r from-blue-50 to-purple-50'
+                }`}>
+                  <div className={`text-2xl font-bold ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {score.correct}/{score.total}
+                  </div>
+                  <div className={`text-sm ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Score: {score.percentage}%
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Questions */}
+        <div className="space-y-6">
+          {mcqs.map((mcq, questionIndex) => (
+            <motion.div
+              key={questionIndex}
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6, delay: questionIndex * 0.1 }}
+              className={`backdrop-blur-sm rounded-2xl p-8 shadow-lg border ${
+                isDarkMode 
+                  ? 'bg-gray-800/80 border-gray-700' 
+                  : 'bg-white/80 border-gray-200/50'
+              }`}
+            >
+              {/* Question */}
+              <div className="mb-6">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className={`text-xl font-bold leading-relaxed ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {questionIndex + 1}. {mcq.question}
+                  </h3>
+                  <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    mcq.difficulty === 'easy' 
+                      ? isDarkMode 
+                        ? 'bg-green-900/30 text-green-400' 
+                        : 'bg-green-100 text-green-700'
+                      : mcq.difficulty === 'medium' 
+                      ? isDarkMode 
+                        ? 'bg-yellow-900/30 text-yellow-400' 
+                        : 'bg-yellow-100 text-yellow-700'
+                      : isDarkMode 
+                      ? 'bg-red-900/30 text-red-400' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {mcq.difficulty}
+                  </div>
+                </div>
+              </div>
+
+              {/* Options */}
+              <div className="space-y-3 mb-6">
+                {mcq.options.map((option, optionIndex) => {
+                  const isSelected = selectedAnswers[questionIndex] === optionIndex;
+                  const isCorrect = optionIndex === mcq.correctAnswer;
+                  const showResult = showAnswers || isSelected;
+                  
+                  return (
+                    <motion.button
+                      key={optionIndex}
+                      onClick={() => handleAnswerSelect(questionIndex, optionIndex)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`w-full p-4 text-left rounded-xl border-2 transition-all duration-200 ${
+                        showResult && isCorrect
+                          ? isDarkMode
+                            ? 'border-green-500 bg-green-900/20 text-green-300'
+                            : 'border-green-500 bg-green-50 text-green-800'
+                          : showResult && isSelected && !isCorrect
+                          ? isDarkMode
+                            ? 'border-red-500 bg-red-900/20 text-red-300'
+                            : 'border-red-500 bg-red-50 text-red-800'
+                          : isSelected
+                          ? isDarkMode
+                            ? 'border-blue-500 bg-blue-900/20 text-blue-300'
+                            : 'border-blue-500 bg-blue-50 text-blue-800'
+                          : isDarkMode
+                          ? 'border-gray-600 bg-gray-700/50 text-gray-300 hover:border-gray-500 hover:bg-gray-700'
+                          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                            showResult && isCorrect
+                              ? isDarkMode
+                                ? 'bg-green-700 text-green-200'
+                                : 'bg-green-200 text-green-800'
+                              : showResult && isSelected && !isCorrect
+                              ? isDarkMode
+                                ? 'bg-red-700 text-red-200'
+                                : 'bg-red-200 text-red-800'
+                              : isSelected
+                              ? isDarkMode
+                                ? 'bg-blue-700 text-blue-200'
+                                : 'bg-blue-200 text-blue-800'
+                              : isDarkMode
+                              ? 'bg-gray-600 text-gray-300'
+                              : 'bg-gray-200 text-gray-700'
+                          }`}>
+                            {String.fromCharCode(65 + optionIndex)}
+                          </div>
+                          <span className="font-medium">{option}</span>
+                        </div>
+                        
+                        {showResult && isCorrect && <CheckCircle className="w-5 h-5 text-green-600" />}
+                        {showResult && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-600" />}
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              {/* Hint */}
+              {mcq.hint && (
+                <div className="mb-4">
+                  <button
+                    onClick={() => toggleHint(questionIndex)}
+                    className={`flex items-center space-x-2 transition-colors ${
+                      isDarkMode 
+                        ? 'text-blue-400 hover:text-blue-300' 
+                        : 'text-blue-600 hover:text-blue-700'
+                    }`}
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">
+                      {showHints[questionIndex] ? 'Hide Hint' : 'Show Hint'}
+                    </span>
+                  </button>
+                  
+                  {showHints[questionIndex] && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className={`mt-2 p-3 border rounded-lg ${
+                        isDarkMode 
+                          ? 'bg-blue-900/20 border-blue-800/30 text-blue-300' 
+                          : 'bg-blue-50 border-blue-200 text-blue-800'
+                      }`}
+                    >
+                      <p className="text-sm">{mcq.hint}</p>
+                    </motion.div>
+                  )}
+                </div>
+              )}
+
+              {/* Explanation */}
+              {showAnswers && mcq.explanation && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className={`p-4 border rounded-lg ${
+                    isDarkMode 
+                      ? 'bg-gray-700/50 border-gray-600 text-gray-300' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700'
+                  }`}
+                >
+                  <h4 className={`font-semibold mb-2 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    Explanation:
+                  </h4>
+                  <p className="text-sm leading-relaxed">{mcq.explanation}</p>
+                </motion.div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Action Buttons */}
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="text-center mt-12"
+        >
+          <Link
+            to="/generate"
+            className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+          >
+            <RefreshCw className="w-5 h-5" />
+            <span>Generate More MCQs</span>
+          </Link>
+        </motion.div>
+      </div>
+    </div>
+  );
+};
+
+export default ResultsPage;
