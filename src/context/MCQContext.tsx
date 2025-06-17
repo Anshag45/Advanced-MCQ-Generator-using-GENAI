@@ -24,8 +24,6 @@ interface MCQContextType {
   sourceUrl: string;
   sourceText: string;
   isLoading: boolean;
-  apiKey: string;
-  setApiKey: (key: string) => void;
   generateMCQsFromUrl: (url: string, settings: GenerationSettings) => Promise<void>;
   generateMCQsFromText: (text: string, settings: GenerationSettings) => Promise<void>;
 }
@@ -44,19 +42,14 @@ interface MCQProviderProps {
   children: ReactNode;
 }
 
+// TODO: Replace with your actual Gemini API key
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+
 export const MCQProvider: React.FC<MCQProviderProps> = ({ children }) => {
   const [mcqs, setMcqs] = useState<MCQ[]>([]);
   const [sourceUrl, setSourceUrl] = useState<string>('');
   const [sourceText, setSourceText] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [apiKey, setApiKey] = useState<string>(() => {
-    return localStorage.getItem('gemini_api_key') || '';
-  });
-
-  const saveApiKey = (key: string) => {
-    setApiKey(key);
-    localStorage.setItem('gemini_api_key', key);
-  };
 
   const generateMCQPrompt = (content: string, settings: GenerationSettings) => {
     return `
@@ -90,8 +83,8 @@ Important: Return ONLY the JSON array, no additional text or formatting.
   };
 
   const generateMCQsFromUrl = async (url: string, settings: GenerationSettings) => {
-    if (!apiKey) {
-      throw new Error('Please set your Gemini API key first');
+    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+      throw new Error('Gemini API key not configured. Please add your API key to the code.');
     }
 
     setIsLoading(true);
@@ -116,8 +109,8 @@ Important: Return ONLY the JSON array, no additional text or formatting.
   };
 
   const generateMCQsFromText = async (text: string, settings: GenerationSettings) => {
-    if (!apiKey) {
-      throw new Error('Please set your Gemini API key first');
+    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+      throw new Error('Gemini API key not configured. Please add your API key to the code.');
     }
 
     setIsLoading(true);
@@ -136,7 +129,7 @@ Important: Return ONLY the JSON array, no additional text or formatting.
 
   const generateMCQsWithGemini = async (content: string, settings: GenerationSettings) => {
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
       const prompt = generateMCQPrompt(content, settings);
@@ -183,8 +176,6 @@ Important: Return ONLY the JSON array, no additional text or formatting.
     sourceUrl,
     sourceText,
     isLoading,
-    apiKey,
-    setApiKey: saveApiKey,
     generateMCQsFromUrl,
     generateMCQsFromText
   };
