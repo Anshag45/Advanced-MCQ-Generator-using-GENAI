@@ -130,7 +130,7 @@ Important: Return ONLY the JSON array, no additional text or formatting.
   const generateMCQsWithGemini = async (content: string, settings: GenerationSettings) => {
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
       const prompt = generateMCQPrompt(content, settings);
       const result = await model.generateContent(prompt);
