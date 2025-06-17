@@ -43,7 +43,7 @@ interface MCQProviderProps {
 }
 
 // TODO: Replace with your actual Gemini API key
-const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+const GEMINI_API_KEY = 'AIzaSyD3CIbAcTm14iQLVSHIDjex5K8EIC_iBiY';
 
 export const MCQProvider: React.FC<MCQProviderProps> = ({ children }) => {
   const [mcqs, setMcqs] = useState<MCQ[]>([]);
