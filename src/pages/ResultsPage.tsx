@@ -23,7 +23,7 @@ const ResultsPage: React.FC = () => {
   const { mcqs, sourceUrl, sourceText, isLoading } = useMCQContext();
   const { isDarkMode } = useTheme();
   const [showAnswers, setShowAnswers] = useState(false);
-  const [selectedAnswers, setSelectedAnswers] = useState<{[key: number]: number}>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<{[key: number]: number | number[]}>({});
   const [showHints, setShowHints] = useState<{[key: number]: boolean}>({});
   const [copied, setCopied] = useState(false);
 
@@ -72,10 +72,27 @@ const ResultsPage: React.FC = () => {
   }
 
   const handleAnswerSelect = (questionIndex: number, answerIndex: number) => {
-    setSelectedAnswers({
-      ...selectedAnswers,
-      [questionIndex]: answerIndex
-    });
+    const mcq = mcqs[questionIndex];
+    
+    if (mcq.type === 'multiple') {
+      const currentAnswers = Array.isArray(selectedAnswers[questionIndex]) 
+        ? selectedAnswers[questionIndex] as number[]
+        : [];
+      
+      const newAnswers = currentAnswers.includes(answerIndex)
+        ? currentAnswers.filter(idx => idx !== answerIndex)
+        : [...currentAnswers, answerIndex];
+      
+      setSelectedAnswers({
+        ...selectedAnswers,
+        [questionIndex]: newAnswers
+      });
+    } else {
+      setSelectedAnswers({
+        ...selectedAnswers,
+        [questionIndex]: answerIndex
+      });
+    }
   };
 
   const toggleHint = (questionIndex: number) => {
@@ -98,11 +115,43 @@ const ResultsPage: React.FC = () => {
   const calculateScore = () => {
     let correct = 0;
     mcqs.forEach((mcq, index) => {
-      if (selectedAnswers[index] === mcq.correctAnswer) {
-        correct++;
+      const userAnswer = selectedAnswers[index];
+      const correctAnswer = mcq.correctAnswer;
+      
+      if (mcq.type === 'multiple') {
+        const userAnswers = Array.isArray(userAnswer) ? userAnswer : [];
+        const correctAnswers = Array.isArray(correctAnswer) ? correctAnswer : [correctAnswer];
+        
+        if (userAnswers.length === correctAnswers.length && 
+            userAnswers.every(ans => correctAnswers.includes(ans))) {
+          correct++;
+        }
+      } else {
+        if (userAnswer === correctAnswer) {
+          correct++;
+        }
       }
     });
     return { correct, total: mcqs.length, percentage: Math.round((correct / mcqs.length) * 100) };
+  };
+
+  const isAnswerCorrect = (questionIndex: number, optionIndex: number) => {
+    const mcq = mcqs[questionIndex];
+    const correctAnswer = mcq.correctAnswer;
+    
+    if (Array.isArray(correctAnswer)) {
+      return correctAnswer.includes(optionIndex);
+    }
+    return correctAnswer === optionIndex;
+  };
+
+  const isAnswerSelected = (questionIndex: number, optionIndex: number) => {
+    const userAnswer = selectedAnswers[questionIndex];
+    
+    if (Array.isArray(userAnswer)) {
+      return userAnswer.includes(optionIndex);
+    }
+    return userAnswer === optionIndex;
   };
 
   const score = calculateScore();
@@ -257,20 +306,31 @@ const ResultsPage: React.FC = () => {
                   }`}>
                     {questionIndex + 1}. {mcq.question}
                   </h3>
-                  <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    mcq.difficulty === 'easy' 
-                      ? isDarkMode 
-                        ? 'bg-green-900/30 text-green-400' 
-                        : 'bg-green-100 text-green-700'
-                      : mcq.difficulty === 'medium' 
-                      ? isDarkMode 
-                        ? 'bg-yellow-900/30 text-yellow-400' 
-                        : 'bg-yellow-100 text-yellow-700'
-                      : isDarkMode 
-                      ? 'bg-red-900/30 text-red-400' 
-                      : 'bg-red-100 text-red-700'
-                  }`}>
-                    {mcq.difficulty}
+                  <div className="flex items-center space-x-2">
+                    {mcq.type === 'multiple' && (
+                      <div className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        isDarkMode 
+                          ? 'bg-purple-900/30 text-purple-400' 
+                          : 'bg-purple-100 text-purple-700'
+                      }`}>
+                        Multiple
+                      </div>
+                    )}
+                    <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      mcq.difficulty === 'easy' 
+                        ? isDarkMode 
+                          ? 'bg-green-900/30 text-green-400' 
+                          : 'bg-green-100 text-green-700'
+                        : mcq.difficulty === 'medium' 
+                        ? isDarkMode 
+                          ? 'bg-yellow-900/30 text-yellow-400' 
+                          : 'bg-yellow-100 text-yellow-700'
+                        : isDarkMode 
+                        ? 'bg-red-900/30 text-red-400' 
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {mcq.difficulty}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -278,8 +338,8 @@ const ResultsPage: React.FC = () => {
               {/* Options */}
               <div className="space-y-3 mb-6">
                 {mcq.options.map((option, optionIndex) => {
-                  const isSelected = selectedAnswers[questionIndex] === optionIndex;
-                  const isCorrect = optionIndex === mcq.correctAnswer;
+                  const isSelected = isAnswerSelected(questionIndex, optionIndex);
+                  const isCorrect = isAnswerCorrect(questionIndex, optionIndex);
                   const showResult = showAnswers || isSelected;
                   
                   return (

@@ -28,7 +28,8 @@ const GeneratorPage: React.FC = () => {
     numAnswers: 4,
     temperature: 0.7,
     includeHints: true,
-    includeExplanations: true
+    includeExplanations: true,
+    allowMultipleCorrect: false // New setting
   });
   
   const [urlStatus, setUrlStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
@@ -274,7 +275,7 @@ const GeneratorPage: React.FC = () => {
                   <input
                     type="range"
                     min="3"
-                    max="15"
+                    max="50"
                     value={settings.numQuestions}
                     onChange={(e) => setSettings({...settings, numQuestions: parseInt(e.target.value)})}
                     className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
@@ -335,6 +336,7 @@ const GeneratorPage: React.FC = () => {
                   <option value={3}>3 Options</option>
                   <option value={4}>4 Options</option>
                   <option value={5}>5 Options</option>
+                  <option value={6}>6 Options</option>
                 </select>
               </div>
 
@@ -395,6 +397,18 @@ const GeneratorPage: React.FC = () => {
                   />
                   <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
                     Include explanations
+                  </span>
+                </label>
+                
+                <label className="flex items-center space-x-3 cursor-pointer md:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.allowMultipleCorrect}
+                    onChange={(e) => setSettings({...settings, allowMultipleCorrect: e.target.checked})}
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>
+                    Allow multiple correct answers (some questions may have more than one correct option)
                   </span>
                 </label>
               </div>
