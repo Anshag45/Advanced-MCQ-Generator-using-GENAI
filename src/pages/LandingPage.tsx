@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, 
   Brain, 
@@ -12,12 +12,16 @@ import {
   Target,
   Users,
   Globe,
-  Type
+  Type,
+  X,
+  CheckCircle,
+  HelpCircle
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 const LandingPage: React.FC = () => {
   const { isDarkMode } = useTheme();
+  const [showExamples, setShowExamples] = useState(false);
   
   const features = [
     {
@@ -51,6 +55,49 @@ const LandingPage: React.FC = () => {
     { label: 'Active Users', value: '2.5K+', icon: Users },
     { label: 'Time Saved', value: '500hrs+', icon: Clock },
     { label: 'Success Rate', value: '98%', icon: Sparkles }
+  ];
+
+  const exampleMCQs = [
+    {
+      question: "What are the primary benefits of artificial intelligence in modern web development? (Select all that apply)",
+      options: [
+        "Enhanced user experience through personalization",
+        "Automated code generation and testing",
+        "Increased development costs",
+        "Improved accessibility features"
+      ],
+      correctAnswer: [0, 1, 3],
+      type: 'multiple',
+      difficulty: 'medium',
+      explanation: "AI enhances user experience through personalization, automates repetitive tasks, and improves accessibility. It typically reduces costs rather than increases them."
+    },
+    {
+      question: "Which HTTP status code indicates a successful response?",
+      options: [
+        "404 Not Found",
+        "200 OK",
+        "500 Internal Server Error",
+        "403 Forbidden"
+      ],
+      correctAnswer: 1,
+      type: 'single',
+      difficulty: 'easy',
+      hint: "This status code is commonly seen when a web page loads successfully."
+    },
+    {
+      question: "In React development, which concepts are fundamental to component state management?",
+      options: [
+        "useState and useEffect hooks",
+        "Props and state",
+        "Component lifecycle methods",
+        "Context API",
+        "Redux store"
+      ],
+      correctAnswer: [0, 1, 3],
+      type: 'multiple',
+      difficulty: 'hard',
+      explanation: "useState and useEffect are essential hooks, props and state are core concepts, and Context API provides state sharing. Lifecycle methods are class-based, and Redux is optional."
+    }
   ];
 
   return (
@@ -103,6 +150,7 @@ const LandingPage: React.FC = () => {
                 </Link>
                 
                 <motion.button
+                  onClick={() => setShowExamples(true)}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={`flex items-center space-x-2 px-8 py-4 rounded-xl text-lg font-semibold border transition-all duration-300 ${
@@ -125,6 +173,170 @@ const LandingPage: React.FC = () => {
           <div className="absolute -bottom-40 -left-32 w-80 h-80 bg-gradient-to-br from-teal-400/20 to-green-600/20 rounded-full blur-3xl"></div>
         </div>
       </section>
+
+      {/* Examples Modal */}
+      <AnimatePresence>
+        {showExamples && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowExamples(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${
+                isDarkMode ? 'bg-gray-800' : 'bg-white'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b backdrop-blur-sm bg-opacity-90">
+                <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Example MCQs
+                </h2>
+                <button
+                  onClick={() => setShowExamples(false)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                  }`}
+                >
+                  <X className={`w-6 h-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-8">
+                {exampleMCQs.map((mcq, index) => (
+                  <div
+                    key={index}
+                    className={`p-6 rounded-xl border ${
+                      isDarkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <h3 className={`text-lg font-semibold leading-relaxed ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {index + 1}. {mcq.question}
+                      </h3>
+                      <div className="flex items-center space-x-2 ml-4">
+                        {mcq.type === 'multiple' && (
+                          <div className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            isDarkMode 
+                              ? 'bg-purple-900/30 text-purple-400' 
+                              : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            Multiple
+                          </div>
+                        )}
+                        <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          mcq.difficulty === 'easy' 
+                            ? isDarkMode 
+                              ? 'bg-green-900/30 text-green-400' 
+                              : 'bg-green-100 text-green-700'
+                            : mcq.difficulty === 'medium' 
+                            ? isDarkMode 
+                              ? 'bg-yellow-900/30 text-yellow-400' 
+                              : 'bg-yellow-100 text-yellow-700'
+                            : isDarkMode 
+                            ? 'bg-red-900/30 text-red-400' 
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {mcq.difficulty}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 mb-4">
+                      {mcq.options.map((option, optionIndex) => {
+                        const isCorrect = Array.isArray(mcq.correctAnswer) 
+                          ? mcq.correctAnswer.includes(optionIndex)
+                          : mcq.correctAnswer === optionIndex;
+                        
+                        return (
+                          <div
+                            key={optionIndex}
+                            className={`p-3 rounded-lg border ${
+                              isCorrect
+                                ? isDarkMode
+                                  ? 'border-green-500 bg-green-900/20 text-green-300'
+                                  : 'border-green-500 bg-green-50 text-green-800'
+                                : isDarkMode
+                                ? 'border-gray-600 bg-gray-700/30 text-gray-300'
+                                : 'border-gray-200 bg-white text-gray-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold ${
+                                  isCorrect
+                                    ? isDarkMode
+                                      ? 'bg-green-700 text-green-200'
+                                      : 'bg-green-200 text-green-800'
+                                    : isDarkMode
+                                    ? 'bg-gray-600 text-gray-300'
+                                    : 'bg-gray-200 text-gray-700'
+                                }`}>
+                                  {String.fromCharCode(65 + optionIndex)}
+                                </div>
+                                <span className="font-medium">{option}</span>
+                              </div>
+                              {isCorrect && <CheckCircle className="w-5 h-5 text-green-600" />}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {mcq.hint && (
+                      <div className={`p-3 border rounded-lg mb-4 ${
+                        isDarkMode 
+                          ? 'bg-blue-900/20 border-blue-800/30 text-blue-300' 
+                          : 'bg-blue-50 border-blue-200 text-blue-800'
+                      }`}>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <HelpCircle className="w-4 h-4" />
+                          <span className="font-semibold text-sm">Hint:</span>
+                        </div>
+                        <p className="text-sm">{mcq.hint}</p>
+                      </div>
+                    )}
+                    
+                    {mcq.explanation && (
+                      <div className={`p-3 border rounded-lg ${
+                        isDarkMode 
+                          ? 'bg-gray-700/50 border-gray-600 text-gray-300' 
+                          : 'bg-gray-50 border-gray-200 text-gray-700'
+                      }`}>
+                        <h4 className={`font-semibold mb-2 text-sm ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          Explanation:
+                        </h4>
+                        <p className="text-sm leading-relaxed">{mcq.explanation}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                <div className="text-center pt-4">
+                  <Link to="/generate">
+                    <button
+                      onClick={() => setShowExamples(false)}
+                      className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-300"
+                    >
+                      <span>Create Your Own MCQs</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Stats Section */}
       <section className={`py-16 backdrop-blur-sm ${
