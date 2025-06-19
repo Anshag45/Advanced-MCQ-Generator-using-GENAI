@@ -82,6 +82,85 @@ Important: Return ONLY the JSON array, no additional text or formatting.
 `;
   };
 
+  const extractContentFromUrl = async (url: string): Promise<string> => {
+    const proxies = [
+      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+      `https://cors-anywhere.herokuapp.com/${url}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    ];
+
+    let lastError: Error | null = null;
+
+    // Try multiple proxy services
+    for (const proxyUrl of proxies) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        const response = await fetch(proxyUrl, {
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'User-Agent': 'MCQ Generator App'
+          }
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        let content = '';
+
+        // Handle different proxy response formats
+        if (data.contents) {
+          content = data.contents;
+        } else if (data.data) {
+          content = data.data;
+        } else if (typeof data === 'string') {
+          content = data;
+        } else {
+          throw new Error('Unexpected response format from proxy service');
+        }
+
+        // Simple content extraction (remove HTML tags and clean up)
+        const cleanContent = content
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (cleanContent.length < 50) {
+          throw new Error('Extracted content is too short or empty');
+        }
+
+        return cleanContent.substring(0, 4000);
+
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`Proxy ${proxyUrl} failed:`, error);
+        continue;
+      }
+    }
+
+    // If all proxies fail, throw a more descriptive error
+    throw new Error(
+      `Unable to fetch content from URL. This could be due to:\n` +
+      `• The website blocking automated requests\n` +
+      `• Network connectivity issues\n` +
+      `• Proxy services being temporarily unavailable\n` +
+      `• The URL requiring authentication\n\n` +
+      `Please try:\n` +
+      `• Copying and pasting the content directly using the "Text Input" option\n` +
+      `• Checking if the URL is publicly accessible\n` +
+      `• Trying again in a few minutes\n\n` +
+      `Last error: ${lastError?.message || 'Unknown error'}`
+    );
+  };
+
   const generateMCQsFromUrl = async (url: string, settings: GenerationSettings) => {
     if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
       throw new Error('Gemini API key not configured. Please add your API key to the code.');
@@ -92,17 +171,11 @@ Important: Return ONLY the JSON array, no additional text or formatting.
     setSourceText('');
     
     try {
-      // Extract content from URL (simplified - in production, use a proper web scraping service)
-      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-      const data = await response.json();
-      
-      // Simple content extraction (in production, use proper HTML parsing)
-      const content = data.contents.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 4000);
-      
+      const content = await extractContentFromUrl(url);
       await generateMCQsWithGemini(content, settings);
     } catch (error) {
       console.error('Error generating MCQs from URL:', error);
-      throw new Error('Failed to extract content from URL or generate MCQs');
+      throw error;
     } finally {
       setIsLoading(false);
     }
