@@ -227,8 +227,10 @@ const ResultsPage: React.FC = () => {
       } catch (error) {
         if (error instanceof Error && error.name !== 'AbortError') {
           console.error('Error sharing:', error);
-          setShowShareModal(true);
+          setShareSuccess('Native sharing unavailable. Please use the options below.');
+          setTimeout(() => setShareSuccess(''), 3000);
         }
+        setShowShareModal(true);
       }
     } else {
       setShowShareModal(true);
