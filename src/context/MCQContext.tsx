@@ -84,20 +84,20 @@ Important: Return ONLY the JSON array, no additional text or formatting.
 
   const extractContentFromUrl = async (url: string): Promise<string> => {
     const proxies = [
-      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-      `https://cors-anywhere.herokuapp.com/${url}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+      { url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json' },
+      { url: `https://cors-anywhere.herokuapp.com/${url}`, type: 'text' },
+      { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' }
     ];
 
     let lastError: Error | null = null;
 
     // Try multiple proxy services
-    for (const proxyUrl of proxies) {
+    for (const proxy of proxies) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-        const response = await fetch(proxyUrl, {
+        const response = await fetch(proxy.url, {
           signal: controller.signal,
           headers: {
             'Accept': 'application/json, text/plain, */*',
@@ -111,18 +111,47 @@ Important: Return ONLY the JSON array, no additional text or formatting.
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const data = await response.json();
         let content = '';
 
-        // Handle different proxy response formats
-        if (data.contents) {
-          content = data.contents;
-        } else if (data.data) {
-          content = data.data;
-        } else if (typeof data === 'string') {
-          content = data;
-        } else {
-          throw new Error('Unexpected response format from proxy service');
+        // Parse response based on expected type and content-type header
+        const contentType = response.headers.get('content-type') || '';
+        
+        try {
+          if (proxy.type === 'json' || contentType.includes('application/json')) {
+            const data = await response.json();
+            
+            // Handle different JSON response formats
+            if (data.contents) {
+              content = data.contents;
+            } else if (data.data) {
+              content = data.data;
+            } else if (typeof data === 'string') {
+              content = data;
+            } else {
+              throw new Error('Unexpected JSON response format from proxy service');
+            }
+          } else {
+            // Handle as text response
+            content = await response.text();
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, try as text
+          if (proxy.type === 'json') {
+            try {
+              const textResponse = await fetch(proxy.url, {
+                signal: controller.signal,
+                headers: {
+                  'Accept': 'text/plain, */*',
+                  'User-Agent': 'MCQ Generator App'
+                }
+              });
+              content = await textResponse.text();
+            } catch (textError) {
+              throw parseError; // Throw original parsing error
+            }
+          } else {
+            throw parseError;
+          }
         }
 
         // Simple content extraction (remove HTML tags and clean up)
@@ -141,7 +170,7 @@ Important: Return ONLY the JSON array, no additional text or formatting.
 
       } catch (error) {
         lastError = error as Error;
-        console.warn(`Proxy ${proxyUrl} failed:`, error);
+        console.warn(`Proxy ${proxy.url} failed:`, error);
         continue;
       }
     }
