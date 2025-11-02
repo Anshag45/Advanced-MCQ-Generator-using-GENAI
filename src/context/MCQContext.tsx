@@ -1,14 +1,13 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface MCQ {
   question: string;
   options: string[];
-  correctAnswer: number | number[]; // Support single or multiple correct answers
+  correctAnswer: number | number[];
   difficulty: 'easy' | 'medium' | 'hard';
   hint?: string;
   explanation?: string;
-  type: 'single' | 'multiple'; // Question type
+  type: 'single' | 'multiple';
 }
 
 export interface GenerationSettings {
@@ -18,7 +17,7 @@ export interface GenerationSettings {
   temperature: number;
   includeHints: boolean;
   includeExplanations: boolean;
-  allowMultipleCorrect: boolean; // New setting for multiple correct answers
+  allowMultipleCorrect: boolean;
 }
 
 interface MCQContextType {
@@ -44,8 +43,8 @@ interface MCQProviderProps {
   children: ReactNode;
 }
 
-// Your Gemini API key
-const GEMINI_API_KEY = 'AIzaSyD3CIbAcTm14iQLVSHIDjex5K8EIC_iBiY';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const MCQProvider: React.FC<MCQProviderProps> = ({ children }) => {
   const [mcqs, setMcqs] = useState<MCQ[]>([]);
@@ -53,88 +52,27 @@ export const MCQProvider: React.FC<MCQProviderProps> = ({ children }) => {
   const [sourceText, setSourceText] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const generateMCQPrompt = (content: string, settings: GenerationSettings) => {
-    const multipleCorrectInstruction = settings.allowMultipleCorrect 
-      ? `
-- Some questions can have multiple correct answers (mark as "type": "multiple" and provide correctAnswer as an array)
-- Mix single correct answer questions (mark as "type": "single" with correctAnswer as a number) and multiple correct answer questions
-- For multiple correct questions, ensure at least 2 options are correct
-- Clearly indicate in the question when multiple answers are expected (e.g., "Select all that apply", "Which of the following are correct?")
-      `
-      : `
-- Each question should have exactly one correct answer (mark as "type": "single" with correctAnswer as a number)
-      `;
-
-    return `
-You are an expert educator and assessment creator. Generate ${settings.numQuestions} multiple choice questions based on the following content. 
-
-Content: "${content}"
-
-Requirements:
-- Difficulty level: ${settings.difficulty}
-- Each question should have exactly ${settings.numAnswers} options
-- Questions should test understanding, not just memorization
-${multipleCorrectInstruction}
-- ${settings.includeHints ? 'Include helpful hints for each question' : 'Do not include hints'}
-- ${settings.includeExplanations ? 'Include detailed explanations for correct answers' : 'Do not include explanations'}
-- Ensure questions are diverse and cover different aspects of the content
-- Make questions clear and unambiguous
-- Vary question types (factual, conceptual, analytical, application-based)
-
-Format your response as a JSON array with this exact structure:
-
-For single correct answer questions:
-{
-  "question": "Question text here",
-  "options": ["Option A", "Option B", "Option C", "Option D"],
-  "correctAnswer": 0,
-  "type": "single",
-  "difficulty": "${settings.difficulty}",
-  ${settings.includeHints ? '"hint": "Helpful hint here",' : ''}
-  ${settings.includeExplanations ? '"explanation": "Detailed explanation here"' : ''}
-}
-
-For multiple correct answer questions (if enabled):
-{
-  "question": "Select all that apply: Question text here",
-  "options": ["Option A", "Option B", "Option C", "Option D"],
-  "correctAnswer": [0, 2],
-  "type": "multiple",
-  "difficulty": "${settings.difficulty}",
-  ${settings.includeHints ? '"hint": "Helpful hint here",' : ''}
-  ${settings.includeExplanations ? '"explanation": "Detailed explanation here"' : ''}
-}
-
-Important: Return ONLY the JSON array, no additional text or formatting.
-`;
-  };
-
   const extractContentFromUrl = async (url: string): Promise<string> => {
-    // Enhanced web scraping with multiple strategies
     const strategies = [
-      // Strategy 1: Direct fetch with CORS proxy
       async () => {
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
         const data = await response.json();
         return data.contents;
       },
-      
-      // Strategy 2: Alternative CORS proxy
+
       async () => {
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
         return await response.text();
       },
-      
-      // Strategy 3: Another proxy service
+
       async () => {
         const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
         return await response.text();
       },
-      
-      // Strategy 4: Scraping API service
+
       async () => {
         const proxyUrl = `https://scrape-it.cloud/api/scrape?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
@@ -148,13 +86,13 @@ Important: Return ONLY the JSON array, no additional text or formatting.
     for (let i = 0; i < strategies.length; i++) {
       try {
         console.log(`Trying scraping strategy ${i + 1}...`);
-        
+
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         const content = await Promise.race([
           strategies[i](),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Strategy timeout')), 15000)
           )
         ]) as string;
@@ -165,27 +103,22 @@ Important: Return ONLY the JSON array, no additional text or formatting.
           throw new Error('No content received or invalid content type');
         }
 
-        // Enhanced content cleaning and extraction
         let cleanContent = content;
 
-        // Remove script and style tags
         cleanContent = cleanContent.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
         cleanContent = cleanContent.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-        
-        // Remove navigation, header, footer, sidebar elements
+
         cleanContent = cleanContent.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
         cleanContent = cleanContent.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '');
         cleanContent = cleanContent.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
         cleanContent = cleanContent.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, '');
-        
-        // Try to extract main content areas
+
         const mainContentRegex = /<main\b[^>]*>(.*?)<\/main>/gis;
         const articleRegex = /<article\b[^>]*>(.*?)<\/article>/gis;
         const contentRegex = /<div[^>]*(?:class|id)="[^"]*(?:content|article|post|main)[^"]*"[^>]*>(.*?)<\/div>/gis;
-        
+
         let extractedContent = '';
-        
-        // Try to find main content
+
         let match = mainContentRegex.exec(cleanContent);
         if (match) {
           extractedContent = match[1];
@@ -200,16 +133,13 @@ Important: Return ONLY the JSON array, no additional text or formatting.
             }
           }
         }
-        
-        // If no specific content area found, use the whole cleaned content
+
         if (!extractedContent) {
           extractedContent = cleanContent;
         }
 
-        // Remove all HTML tags
         extractedContent = extractedContent.replace(/<[^>]*>/g, ' ');
-        
-        // Clean up whitespace and special characters
+
         extractedContent = extractedContent
           .replace(/&nbsp;/g, ' ')
           .replace(/&amp;/g, '&')
@@ -220,10 +150,9 @@ Important: Return ONLY the JSON array, no additional text or formatting.
           .replace(/\s+/g, ' ')
           .trim();
 
-        // Filter out common non-content text
         const lines = extractedContent.split('\n').filter(line => {
           const trimmed = line.trim().toLowerCase();
-          return trimmed.length > 10 && 
+          return trimmed.length > 10 &&
                  !trimmed.includes('cookie') &&
                  !trimmed.includes('privacy policy') &&
                  !trimmed.includes('terms of service') &&
@@ -239,8 +168,7 @@ Important: Return ONLY the JSON array, no additional text or formatting.
         }
 
         console.log(`Successfully extracted ${finalContent.length} characters using strategy ${i + 1}`);
-        
-        // Limit content to prevent API limits (increased limit)
+
         return finalContent.substring(0, 8000);
 
       } catch (error) {
@@ -250,7 +178,6 @@ Important: Return ONLY the JSON array, no additional text or formatting.
       }
     }
 
-    // If all strategies fail, throw a comprehensive error
     throw new Error(
       `Unable to extract content from URL after trying ${strategies.length} different methods.\n\n` +
       `This could be due to:\n` +
@@ -269,19 +196,19 @@ Important: Return ONLY the JSON array, no additional text or formatting.
   };
 
   const generateMCQsFromUrl = async (url: string, settings: GenerationSettings) => {
-    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
-      throw new Error('Gemini API key not configured. Please add your API key to the code.');
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      throw new Error('Supabase configuration is missing. Please check your environment variables.');
     }
 
     setIsLoading(true);
     setSourceUrl(url);
     setSourceText('');
-    
+
     try {
       console.log('Starting content extraction from URL:', url);
       const content = await extractContentFromUrl(url);
       console.log('Content extracted successfully, generating MCQs...');
-      await generateMCQsWithGemini(content, settings);
+      await generateMCQsWithEdgeFunction(content, settings);
     } catch (error) {
       console.error('Error generating MCQs from URL:', error);
       throw error;
@@ -291,16 +218,16 @@ Important: Return ONLY the JSON array, no additional text or formatting.
   };
 
   const generateMCQsFromText = async (text: string, settings: GenerationSettings) => {
-    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
-      throw new Error('Gemini API key not configured. Please add your API key to the code.');
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      throw new Error('Supabase configuration is missing. Please check your environment variables.');
     }
 
     setIsLoading(true);
     setSourceText(text);
     setSourceUrl('');
-    
+
     try {
-      await generateMCQsWithGemini(text, settings);
+      await generateMCQsWithEdgeFunction(text, settings);
     } catch (error) {
       console.error('Error generating MCQs from text:', error);
       throw error;
@@ -309,73 +236,41 @@ Important: Return ONLY the JSON array, no additional text or formatting.
     }
   };
 
-  const generateMCQsWithGemini = async (content: string, settings: GenerationSettings) => {
+  const generateMCQsWithEdgeFunction = async (content: string, settings: GenerationSettings) => {
     try {
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
-        generationConfig: {
-          temperature: settings.temperature,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 8192,
-        }
+      const apiUrl = `${SUPABASE_URL}/functions/v1/generate-mcqs`;
+
+      console.log('Sending request to Edge Function...');
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          settings
+        })
       });
 
-      const prompt = generateMCQPrompt(content, settings);
-      console.log('Sending request to Gemini API...');
-      
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-
-      console.log('Received response from Gemini API');
-
-      // Parse the JSON response
-      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
-      let generatedMCQs;
-      
-      try {
-        generatedMCQs = JSON.parse(cleanedText);
-      } catch (parseError) {
-        console.error('JSON parsing failed, attempting to extract JSON from response');
-        // Try to extract JSON from the response if it's wrapped in other text
-        const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          generatedMCQs = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error('Could not parse JSON response from AI');
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
 
-      if (!Array.isArray(generatedMCQs)) {
-        throw new Error('Invalid response format from AI - expected array');
+      const data = await response.json();
+
+      if (!data.mcqs || !Array.isArray(data.mcqs)) {
+        throw new Error('Invalid response format from server');
       }
 
-      // Validate and normalize the MCQs
-      const validatedMCQs = generatedMCQs.slice(0, settings.numQuestions).map((mcq: any) => {
-        // Ensure type is set
-        if (!mcq.type) {
-          mcq.type = Array.isArray(mcq.correctAnswer) ? 'multiple' : 'single';
-        }
-        
-        // Validate correctAnswer format
-        if (mcq.type === 'multiple' && !Array.isArray(mcq.correctAnswer)) {
-          mcq.correctAnswer = [mcq.correctAnswer];
-        } else if (mcq.type === 'single' && Array.isArray(mcq.correctAnswer)) {
-          mcq.correctAnswer = mcq.correctAnswer[0];
-        }
-        
-        return mcq;
-      });
+      console.log(`Successfully generated ${data.mcqs.length} MCQs`);
+      setMcqs(data.mcqs);
 
-      console.log(`Successfully generated ${validatedMCQs.length} MCQs`);
-      setMcqs(validatedMCQs);
-      
     } catch (error) {
-      console.error('Error with Gemini API:', error);
-      
-      // Enhanced fallback with multiple correct answer support
+      console.error('Error generating MCQs:', error);
+
       const mockMCQs: MCQ[] = [
         {
           question: "What are the primary benefits of artificial intelligence in modern web development? (Select all that apply)",
@@ -406,9 +301,9 @@ Important: Return ONLY the JSON array, no additional text or formatting.
           explanation: settings.includeExplanations ? "JavaScript is the primary programming language for client-side web development, running in web browsers to create interactive and dynamic user interfaces." : undefined
         }
       ];
-      
+
       setMcqs(mockMCQs.slice(0, settings.numQuestions));
-      throw new Error('Failed to generate MCQs with AI. Using fallback questions for demonstration.');
+      throw new Error(`Failed to generate MCQs with AI: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
